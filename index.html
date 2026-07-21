@@ -1173,14 +1173,14 @@
   let isPlaying = false;
   let ytReady = false;
 
-  // YouTube IFrame API callback (must be global)
+  // YouTube IFrame API callback
   window.onYouTubeIframeAPIReady = function() {
     ytPlayer = new YT.Player('ytPlayer', {
       height: '1',
       width: '1',
       videoId: 'uWoYIOcOpwU',
       playerVars: {
-        autoplay: 0,
+        autoplay: 1,
         loop: 1,
         playlist: 'uWoYIOcOpwU',
         controls: 0,
@@ -1192,11 +1192,23 @@
       events: {
         onReady: function() {
           ytReady = true;
-          ytPlayer.setVolume(80);
+          ytPlayer.setVolume(85);
+          // Try playing automatically on load
+          ytPlayer.playVideo();
         },
         onStateChange: function(e) {
-          // YT.PlayerState.ENDED = 0
-          if (e.data === 0) {
+          const btn = document.getElementById('musicToggleBtn');
+          const txt = document.getElementById('musicStatusText');
+
+          if (e.data === YT.PlayerState.PLAYING) {
+            isPlaying = true;
+            if (btn) btn.textContent = '🎵';
+            if (txt) txt.textContent = 'Playing ♪';
+          } else if (e.data === YT.PlayerState.PAUSED) {
+            isPlaying = false;
+            if (btn) btn.textContent = '🔇';
+            if (txt) txt.textContent = 'Paused';
+          } else if (e.data === YT.PlayerState.ENDED) {
             ytPlayer.seekTo(0);
             ytPlayer.playVideo();
           }
@@ -1205,23 +1217,27 @@
     });
   };
 
+  // Fallback user interaction to trigger audio if browser blocked initial autoplay
+  document.addEventListener('click', function startAutoplayOnce() {
+    if (ytReady && ytPlayer && !isPlaying) {
+      ytPlayer.playVideo();
+    }
+  }, { once: true });
+
   function toggleMusic() {
     const btn = document.getElementById('musicToggleBtn');
     const txt = document.getElementById('musicStatusText');
-    if (!ytReady) {
-      txt.textContent = 'Loading...';
+
+    if (!ytReady || !ytPlayer || typeof ytPlayer.getPlayerState !== 'function') {
+      if (txt) txt.textContent = 'Loading...';
       return;
     }
-    if (isPlaying) {
+
+    const state = ytPlayer.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) {
       ytPlayer.pauseVideo();
-      isPlaying = false;
-      btn.textContent = '🔇';
-      txt.textContent = 'Paused';
     } else {
       ytPlayer.playVideo();
-      isPlaying = true;
-      btn.textContent = '🎵';
-      txt.textContent = 'Playing ♪';
     }
   }
 
@@ -1230,12 +1246,9 @@
     const mainApp = document.getElementById('mainApp');
     mainApp.classList.add('show');
     triggerConfettiBurst();
-    // Auto-play music on envelope open
-    if (ytReady) {
+
+    if (ytReady && ytPlayer) {
       ytPlayer.playVideo();
-      isPlaying = true;
-      document.getElementById('musicToggleBtn').textContent = '🎵';
-      document.getElementById('musicStatusText').textContent = 'Playing ♪';
     }
   }
 
